@@ -680,7 +680,8 @@ class PlacePickerState extends State<PlacePicker>
         autoCompleteItem: aci,
         onTap: () {
           FocusScope.of(context).requestFocus(FocusNode());
-          decodeAndSelectPlace(aci.id!);
+          decodeAndSelectPlace(aci.id!,
+              placeName: t['structured_formatting']["main_text"]);
         },
       );
     }).toList();
@@ -721,7 +722,7 @@ class PlacePickerState extends State<PlacePicker>
   /// To navigate to the selected place from the autocomplete list to the map,
   /// the lat,lng is required. This method fetches the lat,lng of the place and
   /// proceeds to moving the map to that location.
-  void decodeAndSelectPlace(String placeId) async {
+  void decodeAndSelectPlace(String placeId, {String? placeName}) async {
     _clearOverlay();
 
     try {
@@ -743,7 +744,8 @@ class PlacePickerState extends State<PlacePicker>
 
       final location = responseJson['result']['geometry']['location'];
       if (mapController.isCompleted) {
-        await animateToLocation(LatLng(location['lat'], location['lng']));
+        await animateToLocation(LatLng(location['lat'], location['lng']),
+            placeName: placeName);
       }
     } catch (e) {
       debugPrint(e.toString());
@@ -766,7 +768,7 @@ class PlacePickerState extends State<PlacePicker>
   /// Animates the camera to the provided location and
   /// updates other UI features to
   /// match the location.
-  Future<void> animateToLocation(LatLng latLng) async {
+  Future<void> animateToLocation(LatLng latLng, {String? placeName}) async {
     _isAnimating = true;
 
     final controller = await mapController.future;
@@ -784,7 +786,7 @@ class PlacePickerState extends State<PlacePicker>
     if (!widget.usePinPointingSearch) setMarker(latLng);
 
     /// Reverse Geocode Lat Lng
-    await reverseGeocodeLatLng(latLng);
+    await reverseGeocodeLatLng(latLng, placeName: placeName);
 
     if (widget.enableNearbyPlaces) await getNearbyPlaces(latLng);
 
@@ -829,7 +831,7 @@ class PlacePickerState extends State<PlacePicker>
 
   /// This method gets the human readable name of the location. Mostly appears
   /// to be the road name and the locality.
-  Future<void> reverseGeocodeLatLng(LatLng latLng) async {
+  Future<void> reverseGeocodeLatLng(LatLng latLng, {String? placeName}) async {
     try {
       final url = Uri.parse("${widget.mapsBaseUrl}geocode/json?"
           "latlng=${latLng.latitude},${latLng.longitude}&"
@@ -912,18 +914,22 @@ class PlacePickerState extends State<PlacePicker>
               final longName = addressComponentRaw.longName;
 
               /// Create the human readable name
-              if (addressComponentsIdx == 0) {
-                /// [street_number]
-                name = shortName ?? "";
-                isOnStreet = types.contains('street_number');
+              if (placeName != null) {
+                name = placeName;
+              } else {
+                if (addressComponentsIdx == 0) {
+                  /// [street_number]
+                  name = shortName ?? "";
+                  isOnStreet = types.contains('street_number');
 
-                /// other index 0 types
-                /// [establishment, point_of_interest, subway_station, transit_station]
-                /// [premise]
-                /// [route]
-              } else if (addressComponentsIdx == 1 && isOnStreet) {
-                if (types.contains('route')) {
-                  name += ", $shortName";
+                  /// other index 0 types
+                  /// [establishment, point_of_interest, subway_station, transit_station]
+                  /// [premise]
+                  /// [route]
+                } else if (addressComponentsIdx == 1 && isOnStreet) {
+                  if (types.contains('route')) {
+                    name += ", $shortName";
+                  }
                 }
               }
 
